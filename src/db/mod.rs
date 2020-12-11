@@ -1,9 +1,10 @@
 use anyhow::*;
-use diesel::r2d2::{self, ConnectionManager, PooledConnection};
-use diesel::sqlite::SqliteConnection;
-use diesel::RunQueryDsl;
+use bb8::{Pool, PooledConnection};
+use bb8_diesel::DieselConnectionManager;
+use diesel::{sqlite::SqliteConnection, RunQueryDsl};
 use diesel_migrations;
 use std::path::{Path, PathBuf};
+use tokio::runtime::Runtime;
 
 mod schema;
 
@@ -15,7 +16,7 @@ embed_migrations!("migrations");
 
 #[derive(Clone)]
 pub struct DB {
-	pool: r2d2::Pool<ConnectionManager<SqliteConnection>>,
+	pool: Pool<DieselConnectionManager<SqliteConnection>>,
 	location: PathBuf,
 }
 
@@ -40,17 +41,25 @@ impl diesel::r2d2::CustomizeConnection<SqliteConnection, diesel::r2d2::Error>
 	}
 }
 
-impl DB {
+impl<'a> DB {
 	pub fn new(path: &Path) -> Result<DB> {
-		let manager = ConnectionManager::<SqliteConnection>::new(path.to_string_lossy());
-		let pool = diesel::r2d2::Pool::builder()
+		let runtime = Runtime::new().unwrap();
+		let db = runtime.block_on(DB::init(path))?;
+		Ok(db)
+	}
+
+	async fn init(path: &Path) -> Result<Self> {
+		let manager = DieselConnectionManager::<SqliteConnection>::new(path.to_string_lossy());
+		let pool = Pool::builder()
+			// https://github.com/djc/bb8/issues/88
 			.connection_customizer(Box::new(ConnectionCustomizer {}))
-			.build(manager)?;
+			.build(manager)
+			.await?;
 		let db = DB {
 			pool: pool,
 			location: path.to_owned(),
 		};
-		db.migrate_up()?;
+		db.migrate_up().await?;
 		Ok(db)
 	}
 
@@ -58,16 +67,18 @@ impl DB {
 		&self.location
 	}
 
-	pub fn connect(&self) -> Result<PooledConnection<ConnectionManager<SqliteConnection>>> {
-		self.pool.get().map_err(Error::new)
+	pub async fn connect(
+		&'a self,
+	) -> Result<PooledConnection<'a, DieselConnectionManager<SqliteConnection>>> {
+		self.pool.get().await.map_err(Error::new)
 	}
 
 	#[allow(dead_code)]
-	fn migrate_down(&self) -> Result<()> {
-		let connection = self.connect().unwrap();
+	async fn migrate_down(&self) -> Result<()> {
+		let connection = self.connect().await.unwrap();
 		loop {
 			match diesel_migrations::revert_latest_migration_in_directory(
-				&connection,
+				&*connection,
 				Path::new(DB_MIGRATIONS_PATH),
 			) {
 				Ok(_) => (),
@@ -80,9 +91,9 @@ impl DB {
 		Ok(())
 	}
 
-	fn migrate_up(&self) -> Result<()> {
-		let connection = self.connect().unwrap();
-		embedded_migrations::run(&connection)?;
+	async fn migrate_up(&self) -> Result<()> {
+		let connection = self.connect().await.unwrap();
+		embedded_migrations::run(&*connection)?;
 		Ok(())
 	}
 }
@@ -110,14 +121,14 @@ pub fn get_test_db(name: &str) -> DB {
 	db
 }
 
-#[test]
-fn test_migrations_up() {
+#[tokio::test]
+async fn test_migrations_up() {
 	get_test_db("migrations_up.sqlite");
 }
 
-#[test]
-fn test_migrations_down() {
+#[tokio::test]
+async fn test_migrations_down() {
 	let db = get_test_db("migrations_down.sqlite");
-	db.migrate_down().unwrap();
-	db.migrate_up().unwrap();
+	db.migrate_down().await.unwrap();
+	db.migrate_up().await.unwrap();
 }

@@ -428,6 +428,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bb8"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "374bba43fc924d90393ee7768e6f75d223a98307a488fe5bc34b66c3e96932a6"
+dependencies = [
+ "async-trait",
+ "futures 0.3.8",
+ "tokio 0.2.23",
+]
+
+[[package]]
+name = "bb8-diesel"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daeec380035abf30eaad07073cc442aeaf158f38a18d384e7da72ca5493e5a51"
+dependencies = [
+ "async-trait",
+ "bb8",
+ "diesel",
+ "tokio 0.2.23",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1076,6 +1099,7 @@ checksum = "9b3b0c040a1fe6529d30b3c5944b280c7f0dcb2930d2c3062bca967b602583d0"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -1106,6 +1130,17 @@ checksum = "ab90cde24b3319636588d0c35fe03b1333857621051837ed769faefb4c2162e4"
 dependencies = [
  "futures 0.1.30",
  "num_cpus",
+]
+
+[[package]]
+name = "futures-executor"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4caa2b2b68b880003057c1dd49f1ed937e38f22fcf6c212188a121f08cf40a65"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
 ]
 
 [[package]]
@@ -2139,6 +2174,8 @@ dependencies = [
  "anyhow",
  "ape",
  "base64 0.13.0",
+ "bb8",
+ "bb8-diesel",
  "cookie 0.14.3",
  "crossbeam-channel",
  "diesel",
@@ -2171,6 +2208,7 @@ dependencies = [
  "simplelog",
  "thiserror",
  "time 0.2.23",
+ "tokio 0.2.23",
  "toml",
  "unix-daemonize",
  "url 2.2.0",
@@ -3043,9 +3081,11 @@ dependencies = [
  "memchr",
  "mio",
  "mio-uds",
+ "num_cpus",
  "pin-project-lite 0.1.11",
  "signal-hook-registry",
  "slab",
+ "tokio-macros",
  "winapi 0.3.9",
 ]
 
@@ -3089,6 +3129,17 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.30",
  "log",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
+dependencies = [
+ "proc-macro2",
+ "quote 1.0.7",
+ "syn 1.0.54",
 ]
 
 [[package]]
