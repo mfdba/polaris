@@ -10,6 +10,7 @@ use crate::db::DB;
 
 const DDNS_UPDATE_URL: &str = "https://ydns.io/api/v1/update/";
 
+#[derive(Clone)]
 pub struct Manager {
 	db: DB,
 }
@@ -52,7 +53,7 @@ impl Manager {
 
 	pub fn run(&self) {
 		loop {
-			let self_clone = *self.clone();
+			let self_clone = self.clone();
 			tokio::spawn(async move {
 				if let Err(e) = self_clone.update_my_ip().await {
 					error!("Dynamic DNS update error: {:?}", e);
