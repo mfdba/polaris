@@ -52,7 +52,8 @@ impl<'a> DB {
 		let manager = DieselConnectionManager::<SqliteConnection>::new(path.to_string_lossy());
 		let pool = Pool::builder()
 			// https://github.com/djc/bb8/issues/88
-			.connection_customizer(Box::new(ConnectionCustomizer {}))
+			// TODO
+			// .connection_customizer(Box::new(ConnectionCustomizer {}))
 			.build(manager)
 			.await?;
 		let db = DB {

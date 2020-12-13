@@ -16,13 +16,13 @@ impl Manager {
 		Self { db }
 	}
 
-	pub fn get_vfs(&self) -> Result<VFS> {
+	pub async fn get_vfs(&self) -> Result<VFS> {
 		use self::mount_points::dsl::*;
 		let mut vfs = VFS::new();
-		let connection = self.db.connect()?;
+		let connection = self.db.connect().await?;
 		let points: Vec<MountPoint> = mount_points
 			.select((source, name))
-			.get_results(&connection)?;
+			.get_results(&*connection)?;
 		for point in points {
 			vfs.mount(&Path::new(&point.source), &point.name)?;
 		}

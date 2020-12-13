@@ -19,7 +19,7 @@ impl Cleaner {
 	}
 
 	pub async fn clean(&self) -> Result<()> {
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 
 		let connection = self.db.connect().await?;
 

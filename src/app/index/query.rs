@@ -34,7 +34,7 @@ impl Index {
 		P: AsRef<Path>,
 	{
 		let mut output = Vec::new();
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 
 		if virtual_path.as_ref().components().count() == 0 {
@@ -81,7 +81,7 @@ impl Index {
 		P: AsRef<Path>,
 	{
 		use self::songs::dsl::*;
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 
 		let real_songs: Vec<Song> = if virtual_path.as_ref().parent() != None {
@@ -111,7 +111,7 @@ impl Index {
 
 	pub async fn get_random_albums(&self, count: i64) -> Result<Vec<Directory>> {
 		use self::directories::dsl::*;
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 		let real_directories: Vec<Directory> = directories
 			.filter(album.is_not_null())
@@ -126,7 +126,7 @@ impl Index {
 
 	pub async fn get_recent_albums(&self, count: i64) -> Result<Vec<Directory>> {
 		use self::directories::dsl::*;
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 		let real_directories: Vec<Directory> = directories
 			.filter(album.is_not_null())
@@ -140,7 +140,7 @@ impl Index {
 	}
 
 	pub async fn search(&self, query: &str) -> Result<Vec<CollectionFile>> {
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 		let like_test = format!("%{}%", query);
 		let mut output = Vec::new();
@@ -183,7 +183,7 @@ impl Index {
 	}
 
 	pub async fn get_song(&self, virtual_path: &Path) -> Result<Song> {
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let connection = self.db.connect().await?;
 
 		let real_path = vfs.virtual_to_real(virtual_path)?;

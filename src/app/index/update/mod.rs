@@ -36,7 +36,7 @@ impl Index {
 			collector.collect();
 		});
 
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let traverser_thread = std::thread::spawn(move || {
 			let mount_points = vfs.get_mount_points();
 			let traverser = Traverser::new(collect_sender);

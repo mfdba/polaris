@@ -53,38 +53,38 @@ impl Manager {
 		}
 	}
 
-	pub fn link(&self, username: &str, token: &str) -> Result<()> {
+	pub async fn link(&self, username: &str, token: &str) -> Result<()> {
 		let mut scrobbler = Scrobbler::new(LASTFM_API_KEY.into(), LASTFM_API_SECRET.into());
 		let auth_response = scrobbler.authenticate_with_token(token)?;
 
 		self.user_manager
-			.lastfm_link(username, &auth_response.name, &auth_response.key)
+			.lastfm_link(username, &auth_response.name, &auth_response.key).await
 	}
 
-	pub fn unlink(&self, username: &str) -> Result<()> {
-		self.user_manager.lastfm_unlink(username)
+	pub async fn unlink(&self, username: &str) -> Result<()> {
+		self.user_manager.lastfm_unlink(username).await
 	}
 
-	pub fn scrobble(&self, username: &str, track: &Path) -> Result<()> {
+	pub async fn scrobble(&self, username: &str, track: &Path) -> Result<()> {
 		let mut scrobbler = Scrobbler::new(LASTFM_API_KEY.into(), LASTFM_API_SECRET.into());
-		let scrobble = self.scrobble_from_path(track)?;
-		let auth_token = self.user_manager.get_lastfm_session_key(username)?;
+		let scrobble = self.scrobble_from_path(track).await?;
+		let auth_token = self.user_manager.get_lastfm_session_key(username).await?;
 		scrobbler.authenticate_with_session_key(&auth_token);
 		scrobbler.scrobble(&scrobble)?;
 		Ok(())
 	}
 
-	pub fn now_playing(&self, username: &str, track: &Path) -> Result<()> {
+	pub async fn now_playing(&self, username: &str, track: &Path) -> Result<()> {
 		let mut scrobbler = Scrobbler::new(LASTFM_API_KEY.into(), LASTFM_API_SECRET.into());
-		let scrobble = self.scrobble_from_path(track)?;
-		let auth_token = self.user_manager.get_lastfm_session_key(username)?;
+		let scrobble = self.scrobble_from_path(track).await?;
+		let auth_token = self.user_manager.get_lastfm_session_key(username).await?;
 		scrobbler.authenticate_with_session_key(&auth_token);
 		scrobbler.now_playing(&scrobble)?;
 		Ok(())
 	}
 
-	fn scrobble_from_path(&self, track: &Path) -> Result<Scrobble> {
-		let song = self.index.get_song(track)?;
+	async fn scrobble_from_path(&self, track: &Path) -> Result<Scrobble> {
+		let song = self.index.get_song(track).await?;
 		Ok(Scrobble::new(
 			song.artist.as_deref().unwrap_or(""),
 			song.title.as_deref().unwrap_or(""),

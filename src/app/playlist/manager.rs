@@ -22,15 +22,15 @@ impl Manager {
 		Self { db, vfs_manager }
 	}
 
-	pub fn list_playlists(&self, owner: &str) -> Result<Vec<String>, Error> {
-		let connection = self.db.connect()?;
+	pub async fn list_playlists(&self, owner: &str) -> Result<Vec<String>, Error> {
+		let connection = self.db.connect().await?;
 
 		let user: User = {
 			use self::users::dsl::*;
 			users
 				.filter(name.eq(owner))
 				.select((id,))
-				.first(&connection)
+				.first(&*connection)
 				.optional()
 				.map_err(anyhow::Error::new)?
 				.ok_or(Error::UserNotFound)?
@@ -40,13 +40,13 @@ impl Manager {
 			use self::playlists::dsl::*;
 			let found_playlists: Vec<String> = Playlist::belonging_to(&user)
 				.select(name)
-				.load(&connection)
+				.load(&*connection)
 				.map_err(anyhow::Error::new)?;
 			Ok(found_playlists)
 		}
 	}
 
-	pub fn save_playlist(
+	pub async fn save_playlist(
 		&self,
 		playlist_name: &str,
 		owner: &str,
@@ -54,10 +54,10 @@ impl Manager {
 	) -> Result<(), Error> {
 		let new_playlist: NewPlaylist;
 		let playlist: Playlist;
-		let vfs = self.vfs_manager.get_vfs()?;
+		let vfs = self.vfs_manager.get_vfs().await?;
 
 		{
-			let connection = self.db.connect()?;
+			let connection = self.db.connect().await?;
 
 			// Find owner
 			let user: User = {
@@ -65,7 +65,7 @@ impl Manager {
 				users
 					.filter(name.eq(owner))
 					.select((id,))
-					.first(&connection)
+					.first(&*connection)
 					.optional()
 					.map_err(anyhow::Error::new)?
 					.ok_or(Error::UserNotFound)?
@@ -79,7 +79,7 @@ impl Manager {
 
 			diesel::insert_into(playlists::table)
 				.values(&new_playlist)
-				.execute(&connection)
+				.execute(&*connection)
 				.map_err(anyhow::Error::new)?;
 
 			playlist = {
@@ -87,7 +87,7 @@ impl Manager {
 				playlists
 					.select((id, owner))
 					.filter(name.eq(playlist_name).and(owner.eq(user.id)))
-					.get_result(&connection)
+					.get_result(&*connection)
 					.map_err(anyhow::Error::new)?
 			}
 		}
@@ -111,17 +111,17 @@ impl Manager {
 		}
 
 		{
-			let connection = self.db.connect()?;
+			let connection = self.db.connect().await?;
 			connection
 				.transaction::<_, diesel::result::Error, _>(|| {
 					// Delete old content (if any)
 					let old_songs = PlaylistSong::belonging_to(&playlist);
-					diesel::delete(old_songs).execute(&connection)?;
+					diesel::delete(old_songs).execute(&*connection)?;
 
 					// Insert content
 					diesel::insert_into(playlist_songs::table)
 						.values(&new_songs)
-						.execute(&*connection)?; // TODO https://github.com/diesel-rs/diesel/issues/1822
+						.execute(&**connection)?; // TODO https://github.com/diesel-rs/diesel/issues/1822
 					Ok(())
 				})
 				.map_err(anyhow::Error::new)?;
@@ -130,12 +130,16 @@ impl Manager {
 		Ok(())
 	}
 
-	pub fn read_playlist(&self, playlist_name: &str, owner: &str) -> Result<Vec<Song>, Error> {
-		let vfs = self.vfs_manager.get_vfs()?;
+	pub async fn read_playlist(
+		&self,
+		playlist_name: &str,
+		owner: &str,
+	) -> Result<Vec<Song>, Error> {
+		let vfs = self.vfs_manager.get_vfs().await?;
 		let songs: Vec<Song>;
 
 		{
-			let connection = self.db.connect()?;
+			let connection = self.db.connect().await?;
 
 			// Find owner
 			let user: User = {
@@ -143,7 +147,7 @@ impl Manager {
 				users
 					.filter(name.eq(owner))
 					.select((id,))
-					.first(&connection)
+					.first(&*connection)
 					.optional()
 					.map_err(anyhow::Error::new)?
 					.ok_or(Error::UserNotFound)?
@@ -155,7 +159,7 @@ impl Manager {
 				playlists
 					.select((id, owner))
 					.filter(name.eq(playlist_name).and(owner.eq(user.id)))
-					.get_result(&connection)
+					.get_result(&*connection)
 					.optional()
 					.map_err(anyhow::Error::new)?
 					.ok_or(Error::PlaylistNotFound)?
@@ -172,7 +176,9 @@ impl Manager {
 		"#,
 			);
 			let query = query.clone().bind::<sql_types::Integer, _>(playlist.id);
-			songs = query.get_results(&connection).map_err(anyhow::Error::new)?;
+			songs = query
+				.get_results(&*connection)
+				.map_err(anyhow::Error::new)?;
 		}
 
 		// Map real path to virtual paths
@@ -184,15 +190,15 @@ impl Manager {
 		Ok(virtual_songs)
 	}
 
-	pub fn delete_playlist(&self, playlist_name: &str, owner: &str) -> Result<(), Error> {
-		let connection = self.db.connect()?;
+	pub async fn delete_playlist(&self, playlist_name: &str, owner: &str) -> Result<(), Error> {
+		let connection = self.db.connect().await?;
 
 		let user: User = {
 			use self::users::dsl::*;
 			users
 				.filter(name.eq(owner))
 				.select((id,))
-				.first(&connection)
+				.first(&*connection)
 				.optional()
 				.map_err(anyhow::Error::new)?
 				.ok_or(Error::UserNotFound)?
@@ -202,7 +208,7 @@ impl Manager {
 			use self::playlists::dsl::*;
 			let q = Playlist::belonging_to(&user).filter(name.eq(playlist_name));
 			match diesel::delete(q)
-				.execute(&connection)
+				.execute(&*connection)
 				.map_err(anyhow::Error::new)?
 			{
 				0 => Err(Error::PlaylistNotFound),

@@ -145,14 +145,17 @@ impl Manager {
 				.collect::<_>();
 			for config_user in &insert_users {
 				self.user_manager
-					.create_user(&config_user.name, &config_user.password)?;
+					.create_user(&config_user.name, &config_user.password)
+					.await?;
 			}
 
 			// Update users
 			for user in config_users.iter() {
 				// Update password if provided
 				if !user.password.is_empty() {
-					self.user_manager.set_password(&user.name, &user.password)?;
+					self.user_manager
+						.set_password(&user.name, &user.password)
+						.await?;
 				}
 
 				// Update admin rights
