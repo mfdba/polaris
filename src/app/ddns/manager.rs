@@ -19,8 +19,8 @@ impl Manager {
 		Self { db }
 	}
 
-	fn update_my_ip(&self) -> Result<()> {
-		let config = self.get_config()?;
+	async fn update_my_ip(&self) -> Result<()> {
+		let config = self.get_config().await?;
 		if config.host.is_empty() || config.username.is_empty() {
 			info!("Skipping DDNS update because credentials are missing");
 			return Ok(());
@@ -42,19 +42,22 @@ impl Manager {
 		Ok(())
 	}
 
-	fn get_config(&self) -> Result<Config> {
+	async fn get_config(&self) -> Result<Config> {
 		use crate::db::ddns_config::dsl::*;
-		let connection = self.db.connect()?;
+		let connection = self.db.connect().await?;
 		Ok(ddns_config
 			.select((host, username, password))
-			.get_result(&connection)?)
+			.get_result(&*connection)?)
 	}
 
 	pub fn run(&self) {
 		loop {
-			if let Err(e) = self.update_my_ip() {
-				error!("Dynamic DNS update error: {:?}", e);
-			}
+			let self_clone = *self.clone();
+			tokio::spawn(async move {
+				if let Err(e) = self_clone.update_my_ip().await {
+					error!("Dynamic DNS update error: {:?}", e);
+				}
+			});
 			thread::sleep(time::Duration::from_secs(60 * 30));
 		}
 	}
