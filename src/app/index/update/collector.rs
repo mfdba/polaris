@@ -26,13 +26,13 @@ impl Collector {
 	pub async fn collect(&mut self) {
 		loop {
 			match self.receiver.recv().await {
-				Some(directory) => self.collect_directory(directory).await,
+				Some(directory) => self.collect_directory(directory),
 				None => break,
 			}
 		}
 	}
 
-	async fn collect_directory(&mut self, directory: traverser::Directory) {
+	fn collect_directory(&mut self, directory: traverser::Directory) {
 		let mut directory_album = None;
 		let mut directory_year = None;
 		let mut directory_artist = None;
