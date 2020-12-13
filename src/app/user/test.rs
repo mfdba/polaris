@@ -2,9 +2,9 @@ use super::*;
 use crate::db;
 use crate::test_name;
 
-#[test]
-fn test_preferences_read_write() {
-	let db = db::get_test_db(&test_name!());
+#[tokio::test]
+async fn test_preferences_read_write() {
+	let db = db::get_test_db(&test_name!()).await;
 	let manager = Manager::new(db);
 
 	let new_preferences = Preferences {
@@ -13,12 +13,16 @@ fn test_preferences_read_write() {
 		lastfm_username: None,
 	};
 
-	manager.create_user("Walter", "super_secret!").unwrap();
+	manager
+		.create_user("Walter", "super_secret!")
+		.await
+		.unwrap();
 
 	manager
 		.write_preferences("Walter", &new_preferences)
+		.await
 		.unwrap();
 
-	let read_preferences = manager.read_preferences("Walter").unwrap();
+	let read_preferences = manager.read_preferences("Walter").await.unwrap();
 	assert_eq!(new_preferences, read_preferences);
 }

@@ -29,7 +29,6 @@ use crate::app::{
 use crate::service::{dto, error::*};
 
 // TODO.important Use async instead of long blocking operations:
-// - Everything that touches DB
 // - Requests to last.fm
 
 pub fn make_config() -> impl FnOnce(&mut ServiceConfig) + Clone {

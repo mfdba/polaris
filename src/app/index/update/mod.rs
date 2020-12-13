@@ -23,35 +23,35 @@ impl Index {
 		let cleaner = Cleaner::new(self.db.clone(), self.vfs_manager.clone());
 		cleaner.clean().await?;
 
-		let (insert_sender, insert_receiver) = crossbeam_channel::unbounded();
+		let (insert_sender, insert_receiver) = tokio::sync::mpsc::unbounded_channel();
 		let inserter_db = self.db.clone();
-		let insertion_thread = std::thread::spawn(move || {
+		let insertion_thread = tokio::task::spawn(async move {
 			let mut inserter = Inserter::new(inserter_db, insert_receiver);
-			inserter.insert();
+			inserter.insert().await;
 		});
 
-		let (collect_sender, collect_receiver) = crossbeam_channel::unbounded();
-		let collector_thread = std::thread::spawn(move || {
-			let collector = Collector::new(collect_receiver, insert_sender, album_art_pattern);
-			collector.collect();
+		let (collect_sender, collect_receiver) = tokio::sync::mpsc::unbounded_channel();
+		let collector_thread = tokio::task::spawn(async move {
+			let mut collector = Collector::new(collect_receiver, insert_sender, album_art_pattern);
+			collector.collect().await;
 		});
 
 		let vfs = self.vfs_manager.get_vfs().await?;
-		let traverser_thread = std::thread::spawn(move || {
+		let traverser_thread = tokio::task::spawn_blocking(move || {
 			let mount_points = vfs.get_mount_points();
 			let traverser = Traverser::new(collect_sender);
 			traverser.traverse(mount_points.values().map(|p| p.clone()).collect());
 		});
 
-		if let Err(e) = traverser_thread.join() {
+		if let Err(e) = traverser_thread.await {
 			error!("Error joining on traverser thread: {:?}", e);
 		}
 
-		if let Err(e) = collector_thread.join() {
+		if let Err(e) = collector_thread.await {
 			error!("Error joining on collector thread: {:?}", e);
 		}
 
-		if let Err(e) = insertion_thread.join() {
+		if let Err(e) = insertion_thread.await {
 			error!("Error joining on inserter thread: {:?}", e);
 		}
 

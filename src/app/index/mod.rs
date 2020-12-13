@@ -35,8 +35,9 @@ impl Index {
 		};
 
 		let commands_index = index.clone();
+		// Todo this will outlive index, harmless but ugly
 		tokio::spawn(async move {
-			commands_index.process_commands();
+			commands_index.process_commands().await;
 		});
 
 		index
@@ -51,8 +52,9 @@ impl Index {
 
 	pub fn begin_periodic_updates(&self) {
 		let auto_index = self.clone();
-		std::thread::spawn(move || {
-			auto_index.automatic_reindex();
+		// Todo this will outlive index, harmless but ugly
+		tokio::spawn(async move {
+			auto_index.automatic_reindex().await;
 		});
 	}
 
@@ -85,7 +87,7 @@ impl Index {
 				});
 			// TODO review all use of thread::sleep and replace with tokio sleep if needed
 			// TODO review all use of thread::spawn and replace with tokio spawn if needed
-			tokio::time::delay_for(sleep_duration);
+			tokio::time::delay_for(sleep_duration).await;
 		}
 	}
 }

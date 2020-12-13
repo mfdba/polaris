@@ -1,8 +1,8 @@
 use anyhow::*;
-use crossbeam_channel::Receiver;
 use diesel;
 use diesel::prelude::*;
 use log::error;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::db::{directories, songs, DB};
 
@@ -42,14 +42,14 @@ pub enum Item {
 }
 
 pub struct Inserter {
-	receiver: Receiver<Item>,
+	receiver: UnboundedReceiver<Item>,
 	new_directories: Vec<Directory>,
 	new_songs: Vec<Song>,
 	db: DB,
 }
 
 impl Inserter {
-	pub fn new(db: DB, receiver: Receiver<Item>) -> Self {
+	pub fn new(db: DB, receiver: UnboundedReceiver<Item>) -> Self {
 		let new_directories = Vec::with_capacity(INDEX_BUILDING_INSERT_BUFFER_SIZE);
 		let new_songs = Vec::with_capacity(INDEX_BUILDING_INSERT_BUFFER_SIZE);
 		Self {
@@ -60,27 +60,35 @@ impl Inserter {
 		}
 	}
 
-	pub fn insert(&mut self) {
+	pub async fn insert(&mut self) {
 		loop {
-			match self.receiver.recv() {
-				Ok(item) => self.insert_item(item),
-				Err(_) => break,
+			match self.receiver.recv().await {
+				Some(item) => self.insert_item(item).await,
+				None => break,
 			}
+		}
+
+		if self.new_directories.len() > 0 {
+			self.flush_directories().await;
+		}
+
+		if self.new_songs.len() > 0 {
+			self.flush_songs().await;
 		}
 	}
 
-	fn insert_item(&mut self, insert: Item) {
+	async fn insert_item(&mut self, insert: Item) {
 		match insert {
 			Item::Directory(d) => {
 				self.new_directories.push(d);
 				if self.new_directories.len() >= INDEX_BUILDING_INSERT_BUFFER_SIZE {
-					self.flush_directories();
+					self.flush_directories().await;
 				}
 			}
 			Item::Song(s) => {
 				self.new_songs.push(s);
 				if self.new_songs.len() >= INDEX_BUILDING_INSERT_BUFFER_SIZE {
-					self.flush_songs();
+					self.flush_songs().await;
 				}
 			}
 		};
@@ -120,16 +128,5 @@ impl Inserter {
 			error!("Could not insert new songs in database");
 		}
 		self.new_songs.clear();
-	}
-}
-
-impl Drop for Inserter {
-	fn drop(&mut self) {
-		if self.new_directories.len() > 0 {
-			self.flush_directories();
-		}
-		if self.new_songs.len() > 0 {
-			self.flush_songs();
-		}
 	}
 }

@@ -56,7 +56,7 @@ impl Manager {
 			if let Err(e) = self_clone.update_my_ip().await {
 				error!("Dynamic DNS update error: {:?}", e);
 			}
-			tokio::time::delay_for(time::Duration::from_secs(60 * 30));
+			tokio::time::delay_for(time::Duration::from_secs(60 * 30)).await;
 		}
 	}
 }

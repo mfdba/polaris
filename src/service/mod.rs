@@ -53,14 +53,14 @@ impl ContextBuilder {
 		}
 	}
 
-	pub fn build(self) -> anyhow::Result<Context> {
+	pub async fn build(self) -> anyhow::Result<Context> {
 		let db_path = self.database_file_path.unwrap_or_else(|| {
 			let mut path = PathBuf::from(option_env!("POLARIS_DB_DIR").unwrap_or("."));
 			path.push("db.sqlite");
 			path
 		});
 		fs::create_dir_all(&db_path.parent().unwrap())?;
-		let db = DB::new(&db_path)?;
+		let db = DB::new(&db_path).await?;
 
 		let web_dir_path = self
 			.web_dir_path
@@ -90,9 +90,9 @@ impl ContextBuilder {
 
 		if let Some(config_path) = self.config_file_path {
 			let config = config::Config::from_path(&config_path)?;
-			config_manager.amend(&config)?;
+			config_manager.amend(&config).await?;
 		}
-		let auth_secret = config_manager.get_auth_secret()?;
+		let auth_secret = config_manager.get_auth_secret().await?;
 
 		Ok(Context {
 			port: self.port.unwrap_or(5050),

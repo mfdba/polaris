@@ -8,7 +8,7 @@ use anyhow::*;
 
 use crate::service;
 
-mod api;
+pub mod api; // TODO not pub
 
 #[cfg(test)]
 pub mod test;
@@ -37,8 +37,11 @@ pub fn make_config(context: service::Context) -> impl FnOnce(&mut ServiceConfig)
 }
 
 pub fn run(context: service::Context) -> Result<()> {
+	let address = format!("0.0.0.0:{}", context.port);
+
+	let local_set = tokio::task::LocalSet::new();
+	let _system = System::run_in_tokio("actix-http-server", &local_set);
 	System::run(move || {
-		let address = format!("0.0.0.0:{}", context.port);
 		HttpServer::new(move || {
 			App::new()
 				.wrap(Logger::default())
@@ -53,5 +56,6 @@ pub fn run(context: service::Context) -> Result<()> {
 		.run();
 	})
 	.unwrap();
+
 	Ok(())
 }

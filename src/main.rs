@@ -135,28 +135,31 @@ fn main() -> Result<()> {
 		context_builder = context_builder.cache_dir_path(path);
 	}
 
-	let context = context_builder.build()?;
-	info!("Database file location is {:#?}", context.db.location());
-	info!("Web client files location is {:#?}", context.web_dir_path);
-	info!("Swagger files location is {:#?}", context.swagger_dir_path);
-	info!(
-		"Thumbnails files location is {:#?}",
-		context.thumbnail_manager.get_directory()
-	);
+	let mut runtime = tokio::runtime::Runtime::new()?;
+	runtime.block_on(async {
+		let context = context_builder.build().await.unwrap(); // todo no unwrap
+		info!("Database file location is {:#?}", context.db.location());
+		info!("Web client files location is {:#?}", context.web_dir_path);
+		info!("Swagger files location is {:#?}", context.swagger_dir_path);
+		info!(
+			"Thumbnails files location is {:#?}",
+			context.thumbnail_manager.get_directory()
+		);
 
-	// Begin collection scans
-	context.index.begin_periodic_updates();
+		// Begin collection scans
+		context.index.begin_periodic_updates();
 
-	// Start DDNS updates
-	let ddns_manager = app::ddns::Manager::new(context.db.clone());
-	std::thread::spawn(move || {
-		ddns_manager.run();
-	});
+		// Start DDNS updates
+		let ddns_manager = app::ddns::Manager::new(context.db.clone());
+		tokio::task::spawn(async move {
+			ddns_manager.run().await;
+		});
 
-	// Start server
-	info!("Starting up server");
-	std::thread::spawn(move || {
-		let _ = service::run(context);
+		// Start server
+		info!("Starting up server");
+		tokio::task::spawn_blocking(move || {
+			service::run(context).unwrap(); // TODO no unwrap
+		});
 	});
 
 	// Send readiness notification

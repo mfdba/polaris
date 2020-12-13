@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::app::index::metadata::{self, SongTags};
 
@@ -27,7 +28,7 @@ pub struct Directory {
 }
 
 pub struct Traverser {
-	directory_sender: Sender<Directory>,
+	directory_sender: UnboundedSender<Directory>,
 }
 
 #[derive(Debug)]
@@ -37,7 +38,7 @@ struct WorkItem {
 }
 
 impl Traverser {
-	pub fn new(directory_sender: Sender<Directory>) -> Self {
+	pub fn new(directory_sender: UnboundedSender<Directory>) -> Self {
 		Self { directory_sender }
 	}
 
@@ -90,7 +91,7 @@ impl Traverser {
 struct Worker {
 	work_item_sender: Sender<WorkItem>,
 	work_item_receiver: Receiver<WorkItem>,
-	directory_sender: Sender<Directory>,
+	directory_sender: UnboundedSender<Directory>,
 	num_pending_work_items: Arc<AtomicUsize>,
 }
 

@@ -4,7 +4,6 @@ use bb8_diesel::DieselConnectionManager;
 use diesel::{sqlite::SqliteConnection, RunQueryDsl};
 use diesel_migrations;
 use std::path::{Path, PathBuf};
-use tokio::runtime::Runtime;
 
 mod schema;
 
@@ -42,13 +41,7 @@ impl diesel::r2d2::CustomizeConnection<SqliteConnection, diesel::r2d2::Error>
 }
 
 impl<'a> DB {
-	pub fn new(path: &Path) -> Result<DB> {
-		let runtime = Runtime::new().unwrap();
-		let db = runtime.block_on(DB::init(path))?;
-		Ok(db)
-	}
-
-	async fn init(path: &Path) -> Result<Self> {
+	pub async fn new(path: &Path) -> Result<DB> {
 		let manager = DieselConnectionManager::<SqliteConnection>::new(path.to_string_lossy());
 		let pool = Pool::builder()
 			// https://github.com/djc/bb8/issues/88
@@ -100,7 +93,7 @@ impl<'a> DB {
 }
 
 #[cfg(test)]
-pub fn get_test_db(name: &str) -> DB {
+pub async fn get_test_db(name: &str) -> DB {
 	use crate::app::{config, user};
 	let config_path = Path::new("test-data/config.toml");
 	let config = config::Config::from_path(&config_path).unwrap();
@@ -114,22 +107,22 @@ pub fn get_test_db(name: &str) -> DB {
 		std::fs::remove_file(&db_path).unwrap();
 	}
 
-	let db = DB::new(&db_path).unwrap();
+	let db = DB::new(&db_path).await.unwrap();
 	let user_manager = user::Manager::new(db.clone());
 	let config_manager = config::Manager::new(db.clone(), user_manager);
 
-	config_manager.amend(&config).unwrap();
+	config_manager.amend(&config).await.unwrap();
 	db
 }
 
 #[tokio::test]
 async fn test_migrations_up() {
-	get_test_db("migrations_up.sqlite");
+	get_test_db("migrations_up.sqlite").await;
 }
 
 #[tokio::test]
 async fn test_migrations_down() {
-	let db = get_test_db("migrations_down.sqlite");
+	let db = get_test_db("migrations_down.sqlite").await;
 	db.migrate_down().await.unwrap();
 	db.migrate_up().await.unwrap();
 }

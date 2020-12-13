@@ -1,19 +1,19 @@
-use crossbeam_channel::{Receiver, Sender};
 use log::error;
 use regex::Regex;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use super::*;
 
 pub struct Collector {
-	receiver: Receiver<traverser::Directory>,
-	sender: Sender<inserter::Item>,
+	receiver: UnboundedReceiver<traverser::Directory>,
+	sender: UnboundedSender<inserter::Item>,
 	album_art_pattern: Regex,
 }
 
 impl Collector {
 	pub fn new(
-		receiver: Receiver<traverser::Directory>,
-		sender: Sender<inserter::Item>,
+		receiver: UnboundedReceiver<traverser::Directory>,
+		sender: UnboundedSender<inserter::Item>,
 		album_art_pattern: Regex,
 	) -> Self {
 		Self {
@@ -23,16 +23,16 @@ impl Collector {
 		}
 	}
 
-	pub fn collect(&self) {
+	pub async fn collect(&mut self) {
 		loop {
-			match self.receiver.recv() {
-				Ok(directory) => self.collect_directory(directory),
-				Err(_) => break,
+			match self.receiver.recv().await {
+				Some(directory) => self.collect_directory(directory).await,
+				None => break,
 			}
 		}
 	}
 
-	fn collect_directory(&self, directory: traverser::Directory) {
+	async fn collect_directory(&mut self, directory: traverser::Directory) {
 		let mut directory_album = None;
 		let mut directory_year = None;
 		let mut directory_artist = None;
