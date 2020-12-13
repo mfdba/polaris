@@ -75,13 +75,21 @@ impl Index {
 	fn automatic_reindex(&self) {
 		loop {
 			self.trigger_reindex();
-			let sleep_duration = self
-				.config_manager
-				.get_index_sleep_duration()
-				.unwrap_or_else(|e| {
-					error!("Could not retrieve index sleep duration: {}", e);
-					Duration::from_secs(1800)
-				});
+
+			let (tx, rx) = crossbeam_channel::unbounded();
+			let self_clone = self.clone();
+			tokio::spawn(async move {
+				let duration = self_clone
+					.config_manager
+					.get_index_sleep_duration()
+					.await
+					.unwrap_or_else(|e| {
+						error!("Could not retrieve index sleep duration: {}", e);
+						Duration::from_secs(1800)
+					});
+				tx.send(duration).unwrap();
+			});
+			let sleep_duration = rx.recv().unwrap();
 			std::thread::sleep(sleep_duration);
 		}
 	}
