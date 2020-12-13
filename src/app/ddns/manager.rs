@@ -2,7 +2,6 @@ use anyhow::*;
 use diesel::prelude::*;
 use log::{error, info};
 use reqwest;
-use std::thread;
 use std::time;
 
 use super::*;
@@ -51,15 +50,13 @@ impl Manager {
 			.get_result(&*connection)?)
 	}
 
-	pub fn run(&self) {
+	pub async fn run(&self) {
 		loop {
 			let self_clone = self.clone();
-			tokio::spawn(async move {
-				if let Err(e) = self_clone.update_my_ip().await {
-					error!("Dynamic DNS update error: {:?}", e);
-				}
-			});
-			thread::sleep(time::Duration::from_secs(60 * 30));
+			if let Err(e) = self_clone.update_my_ip().await {
+				error!("Dynamic DNS update error: {:?}", e);
+			}
+			tokio::time::delay_for(time::Duration::from_secs(60 * 30));
 		}
 	}
 }

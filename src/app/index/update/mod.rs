@@ -14,14 +14,14 @@ use inserter::Inserter;
 use traverser::Traverser;
 
 impl Index {
-	pub fn update(&self) -> Result<()> {
+	pub async fn update(&self) -> Result<()> {
 		let start = time::Instant::now();
 		info!("Beginning library index update");
 
-		let album_art_pattern = self.config_manager.get_index_album_art_pattern()?;
+		let album_art_pattern = self.config_manager.get_index_album_art_pattern().await?;
 
 		let cleaner = Cleaner::new(self.db.clone(), self.vfs_manager.clone());
-		cleaner.clean()?;
+		cleaner.clean().await?;
 
 		let (insert_sender, insert_receiver) = crossbeam_channel::unbounded();
 		let inserter_db = self.db.clone();

@@ -35,7 +35,7 @@ impl Cleaner {
 		};
 
 		// TODO consider re-introducing rayon for the filtering below
-		// TODO consider using spawning the filtering below to tokio tasks as it could be blocking for a while?
+		// TODO consider using spawn_blocking to run the filtering below as it could take a while
 
 		let list_missing_directories = || {
 			all_directories

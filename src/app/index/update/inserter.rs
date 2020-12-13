@@ -86,14 +86,15 @@ impl Inserter {
 		};
 	}
 
-	fn flush_directories(&mut self) {
+	async fn flush_directories(&mut self) {
 		if self
 			.db
 			.connect()
+			.await
 			.and_then(|connection| {
 				diesel::insert_into(directories::table)
 					.values(&self.new_directories)
-					.execute(&*connection) // TODO https://github.com/diesel-rs/diesel/issues/1822
+					.execute(&**connection) // TODO https://github.com/diesel-rs/diesel/issues/1822
 					.map_err(Error::new)
 			})
 			.is_err()
@@ -103,14 +104,15 @@ impl Inserter {
 		self.new_directories.clear();
 	}
 
-	fn flush_songs(&mut self) {
+	async fn flush_songs(&mut self) {
 		if self
 			.db
 			.connect()
+			.await
 			.and_then(|connection| {
 				diesel::insert_into(songs::table)
 					.values(&self.new_songs)
-					.execute(&*connection) // TODO https://github.com/diesel-rs/diesel/issues/1822
+					.execute(&**connection) // TODO https://github.com/diesel-rs/diesel/issues/1822
 					.map_err(Error::new)
 			})
 			.is_err()

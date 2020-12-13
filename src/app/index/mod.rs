@@ -35,7 +35,7 @@ impl Index {
 		};
 
 		let commands_index = index.clone();
-		std::thread::spawn(move || {
+		tokio::spawn(async move {
 			commands_index.process_commands();
 		});
 
@@ -56,7 +56,7 @@ impl Index {
 		});
 	}
 
-	fn process_commands(&self) {
+	async fn process_commands(&self) {
 		loop {
 			{
 				let (lock, cvar) = &*self.pending_reindex;
@@ -66,31 +66,26 @@ impl Index {
 				}
 				*pending = false;
 			}
-			if let Err(e) = self.update() {
+			if let Err(e) = self.update().await {
 				error!("Error while updating index: {}", e);
 			}
 		}
 	}
 
-	fn automatic_reindex(&self) {
+	async fn automatic_reindex(&self) {
 		loop {
 			self.trigger_reindex();
-
-			let (tx, rx) = crossbeam_channel::unbounded();
-			let self_clone = self.clone();
-			tokio::spawn(async move {
-				let duration = self_clone
-					.config_manager
-					.get_index_sleep_duration()
-					.await
-					.unwrap_or_else(|e| {
-						error!("Could not retrieve index sleep duration: {}", e);
-						Duration::from_secs(1800)
-					});
-				tx.send(duration).unwrap();
-			});
-			let sleep_duration = rx.recv().unwrap();
-			std::thread::sleep(sleep_duration);
+			let sleep_duration = self
+				.config_manager
+				.get_index_sleep_duration()
+				.await
+				.unwrap_or_else(|e| {
+					error!("Could not retrieve index sleep duration: {}", e);
+					Duration::from_secs(1800)
+				});
+			// TODO review all use of thread::sleep and replace with tokio sleep if needed
+			// TODO review all use of thread::spawn and replace with tokio spawn if needed
+			tokio::time::delay_for(sleep_duration);
 		}
 	}
 }
