@@ -1,7 +1,6 @@
 use anyhow::*;
 use diesel;
 use diesel::prelude::*;
-use rayon::prelude::*;
 use std::path::Path;
 
 use crate::app::vfs;
@@ -19,24 +18,28 @@ impl Cleaner {
 		Self { db, vfs_manager }
 	}
 
-	pub fn clean(&self) -> Result<()> {
+	pub async fn clean(&self) -> Result<()> {
 		let vfs = self.vfs_manager.get_vfs()?;
 
+		let connection = self.db.connect().await?;
+
 		let all_directories: Vec<String> = {
-			let connection = self.db.connect()?;
 			directories::table
 				.select(directories::path)
-				.load(&connection)?
+				.load(&*connection)?
 		};
 
 		let all_songs: Vec<String> = {
-			let connection = self.db.connect()?;
-			songs::table.select(songs::path).load(&connection)?
+			let connection = self.db.connect().await?;
+			songs::table.select(songs::path).load(&*connection)?
 		};
+
+		// TODO consider re-introducing rayon for the filtering below
+		// TODO consider using spawning the filtering below to tokio tasks as it could be blocking for a while?
 
 		let list_missing_directories = || {
 			all_directories
-				.par_iter()
+				.iter()
 				.filter(|ref directory_path| {
 					let path = Path::new(&directory_path);
 					!path.exists() || vfs.real_to_virtual(path).is_err()
@@ -46,7 +49,7 @@ impl Cleaner {
 
 		let list_missing_songs = || {
 			all_songs
-				.par_iter()
+				.iter()
 				.filter(|ref song_path| {
 					let path = Path::new(&song_path);
 					!path.exists() || vfs.real_to_virtual(path).is_err()
@@ -59,14 +62,14 @@ impl Cleaner {
 			thread_pool.join(list_missing_directories, list_missing_songs);
 
 		{
-			let connection = self.db.connect()?;
+			let connection = self.db.connect().await?;
 			for chunk in missing_directories[..].chunks(INDEX_BUILDING_CLEAN_BUFFER_SIZE) {
 				diesel::delete(directories::table.filter(directories::path.eq_any(chunk)))
-					.execute(&connection)?;
+					.execute(&*connection)?;
 			}
 			for chunk in missing_songs[..].chunks(INDEX_BUILDING_CLEAN_BUFFER_SIZE) {
 				diesel::delete(songs::table.filter(songs::path.eq_any(chunk)))
-					.execute(&connection)?;
+					.execute(&*connection)?;
 			}
 		}
 
