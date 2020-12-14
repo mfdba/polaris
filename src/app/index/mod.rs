@@ -35,7 +35,8 @@ impl Index {
 		};
 
 		let commands_index = index.clone();
-		// Todo this will outlive index, harmless but ugly
+		// TODO this will outlive index, harmless but ugly
+		// TODO find some async version of waiting for commands
 		tokio::spawn(async move {
 			commands_index.process_commands().await;
 		});
